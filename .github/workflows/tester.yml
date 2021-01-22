@@ -1,0 +1,58 @@
+name: tester
+
+on:
+  schedule:
+    - cron: "35 */7 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache pip
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ms-tester-encrypted-pip
+
+      - name: Install dependency
+        run: pip3 install -r requirements.txt
+
+      - name: Get unique path
+        run: |
+          unique_id=$(echo -n "$CLIENT_ID$CLIENT_SECRET" | md5sum | cut -d ' ' -f 1)
+          echo "TOKEN_PATH=$unique_id" >> $GITHUB_ENV
+
+      - name: Initial tester
+        run: |
+          if [ ! -f $token_{TOKEN_PATH}.txt ]; then
+            python -c "import os,encrypt; encrypt.save(os.environ['REFRESH_TOKEN'], os.environ['AES_KEY'])"
+          fi
+        env:
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          AES_KEY: ${{ secrets.AES_KEY }}
+
+      - name: Test Api
+        run: python main.py
+        env:
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          AES_KEY: ${{ secrets.AES_KEY }}
+
+      - name: Commit
+        run: |
+          git config user.email ${GITHUB_ACTOR}@users.noreply.github.com
+          git config user.name ${GITHUB_ACTOR}
+          git add .
+          git commit -m "update new refresh_token"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
