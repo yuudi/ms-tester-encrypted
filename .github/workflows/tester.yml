@@ -2,13 +2,18 @@ name: tester
 
 on:
   schedule:
-    - cron: "35 */7 * * *"
+    - cron: "35 7,15 * * *"
   workflow_dispatch: {}
 
 jobs:
   test:
     runs-on: ubuntu-20.04
     steps:
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.7"
+
       - name: Checkout
         uses: actions/checkout@v2
 
